@@ -1,0 +1,10 @@
+# studionet (studio.genlayer.com): a 0 GEN account works, but every deploy and
+# write must carry estimated fees (Consensus v0.6). Add testnet_bradbury with
+# funded accounts when we target it.
+networks:
+  default: studionet
+  localnet: {}
+  studionet: {}
+
+paths:
+  contracts: contracts/
