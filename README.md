@@ -15,8 +15,17 @@
 > - `contracts/recount.py` passes `genvm-lint` (only the E014 false positive the skill documents);
 > - 44 direct tests pass;
 > - the Studio dry-run passes (schema and constructor);
-> - the studionet integration test passes (deploy, `open_round`, `file_appeal`, and a duplicate that fails on-chain with state unchanged).
-> - Still to do: the consensus test for `adjudicate`, which needs a public exclusion-record URL.
+> - studionet integration tests pass:
+>   - deploy, `open_round` and `file_appeal`, all with Consensus v0.6 fees;
+>   - a duplicate appeal that fails on-chain with state unchanged;
+>   - `adjudicate` with real validator consensus: live web fetches and an LLM judge, which rejected a no-history claimant despite a prompt-injection attempt in the statement.
+> - Next: `fee-profile.json` and a genlayer-js frontend.
+>
+> ```bash
+> GENVM_VERSION=v0.6.0-rc14 python -m pytest tests/direct
+> RECOUNT_EXCLUSION_URL='https://raw.githubusercontent.com/moltaphet/Recount/main/fixtures/exclusion.json?a={address}' \
+>   gltest tests/integration -v -s --network studionet
+> ```
 
 ---
 
