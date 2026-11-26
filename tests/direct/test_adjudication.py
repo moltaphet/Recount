@@ -19,7 +19,8 @@ def test_approved_verdict_awards_tier(setup, direct_vm, direct_alice):
     assert a["outcome_kind"] == "verdict"
     assert a["tier"] == "plus"
     assert a["award"] == 25 * GEN
-    facts = a["evidence"]["facts"]
+    facts = a["evidence"]["facts"]["total"]
+    assert a["evidence"]["facts"]["chains"]["ethereum"] == facts  # single chain: total equals the chain
     # Post-snapshot txs are ignored: 1 funding + 4 outgoing.
     assert facts["tx_count"] == 5
     assert facts["active_months"] == 4
@@ -83,7 +84,7 @@ def test_empty_history_is_valid_input(setup, direct_vm, direct_alice):
 
     a = contract.get_appeal(aid)
     assert a["outcome_code"] == "min_tx_count"
-    assert a["evidence"]["facts"]["tx_count"] == 0
+    assert a["evidence"]["facts"]["total"]["tx_count"] == 0
 
 
 def test_bot_protection_403_is_transient_and_keeps_appeal_pending(setup, direct_vm, direct_alice):
@@ -91,7 +92,7 @@ def test_bot_protection_403_is_transient_and_keeps_appeal_pending(setup, direct_
     aid = file(direct_vm, contract, direct_alice, rid)
     mock_sources(direct_vm, explorer_status=403, explorer_body={"error": "blocked"})
 
-    with direct_vm.expect_revert("[TRANSIENT] explorer returned 403"):
+    with direct_vm.expect_revert("[TRANSIENT] explorer ethereum returned 403"):
         contract.adjudicate(aid)
     assert contract.get_appeal(aid)["status"] == "FILED"
 
@@ -119,7 +120,7 @@ def test_explorer_notok_is_transient(setup, direct_vm, direct_alice):
     aid = file(direct_vm, contract, direct_alice, rid)
     mock_sources(direct_vm, explorer_body={"status": "0", "message": "NOTOK", "result": "Max rate limit reached"})
 
-    with direct_vm.expect_revert("[TRANSIENT] explorer said NOTOK"):
+    with direct_vm.expect_revert("[TRANSIENT] explorer ethereum said NOTOK"):
         contract.adjudicate(aid)
 
 

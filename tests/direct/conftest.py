@@ -56,8 +56,7 @@ def round_config(**overrides) -> dict:
             {"id": "base", "amount": str(10 * GEN), "description": "Meets one criterion."},
             {"id": "plus", "amount": str(25 * GEN), "description": "Meets both criteria with sustained activity."},
         ],
-        "explorer_api": EXPLORER,
-        "snapshot_block": SNAPSHOT,
+        "sources": [{"chain": "ethereum", "explorer_api": EXPLORER, "snapshot_block": SNAPSHOT}],
         "exclusion_url": EXCLUSION,
         "max_txs": 1000,
         "min_tx_count": 3,
@@ -73,7 +72,7 @@ def round_config(**overrides) -> dict:
 
 
 def make_txs(address: str, months: list[str], funder: str = "0x1111111111111111111111111111111111111111",
-             after_snapshot: int = 0) -> list[dict]:
+             after_snapshot: int = 0, snapshot: int = SNAPSHOT) -> list[dict]:
     """One incoming funding tx, then one outgoing tx in each listed month (YYYY-MM)."""
     address = address.lower()
     txs = [{
@@ -89,11 +88,22 @@ def make_txs(address: str, months: list[str], funder: str = "0x11111111111111111
         })
     for j in range(after_snapshot):
         txs.append({
-            "blockNumber": str(SNAPSHOT + 1 + j), "timeStamp": str(T0_TS), "hash": f"0xff{j}",
+            "blockNumber": str(snapshot + 1 + j), "timeStamp": str(T0_TS), "hash": f"0xff{j}",
             "from": address, "to": "0x2222222222222222222222222222222222222222", "value": "0", "isError": "0",
             "contractAddress": "",
         })
     return txs
+
+
+def explorer_body(txs: list | None) -> dict:
+    return ({"status": "1", "message": "OK", "result": txs} if txs else
+            {"status": "0", "message": "No transactions found", "result": []})
+
+
+def mock_chain(vm, host_regex: str, txs: list | None = None, status: int = 200, body: dict | None = None) -> None:
+    """Mock one chain's explorer txlist endpoint, matched by host."""
+    vm.mock_web(rf".*{host_regex}.*module=account&action=txlist.*",
+                {"status": status, "body": json.dumps(body if body is not None else explorer_body(txs))})
 
 
 def mock_sources(vm, allocation: str = "0", reason: str = "Funded by the same address as 40 other wallets within 1 hour.",
@@ -101,11 +111,13 @@ def mock_sources(vm, allocation: str = "0", reason: str = "Funded by the same ad
                  explorer_body: dict | None = None) -> None:
     vm.mock_web(r".*exclusion/.*\.json", {"status": exclusion_status,
                                           "body": json.dumps({"allocation": allocation, "reason": reason})})
-    body = explorer_body if explorer_body is not None else (
-        {"status": "1", "message": "OK", "result": txs} if txs else
-        {"status": "0", "message": "No transactions found", "result": []}
-    )
-    vm.mock_web(r".*module=account&action=txlist.*", {"status": explorer_status, "body": json.dumps(body)})
+    mock_chain(vm, r"eth\.blockscout\.com", txs, explorer_status, explorer_body)
+
+
+def mock_snapshot(vm, votes: list, status: int = 200) -> None:
+    # Snapshot is queried with POST (GraphQL); direct-mode mocks match the method, GET by default.
+    vm.mock_web(r".*hub\.snapshot\.org/graphql.*", {"method": "POST", "status": status,
+                                                     "body": json.dumps({"data": {"votes": votes}})})
 
 
 # genlayer-test 0.30 json.loads every string mock; the v0.4 SDK expects the raw

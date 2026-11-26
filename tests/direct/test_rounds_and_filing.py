@@ -31,12 +31,17 @@ def test_open_round_freezes_config_and_schedule(setup):
 @pytest.mark.parametrize("override, message", [
     ({"exclusion_url": "https://x.example/{addr}.json"}, "contain {address}"),
     ({"exclusion_url": "http://x.example/{address}.json"}, "must be https"),
-    ({"explorer_api": "https://eth.blockscout.com/api?x=1"}, "explorer_api"),
+    ({"sources": [{"chain": "ethereum", "explorer_api": "https://eth.blockscout.com/api?x=1", "snapshot_block": 1}]},
+     "explorer_api"),
+    ({"sources": []}, "sources: 1-4 chains"),
+    ({"sources": [{"chain": "eth", "explorer_api": "https://a.example/api", "snapshot_block": 1},
+                  {"chain": "eth", "explorer_api": "https://b.example/api", "snapshot_block": 1}]}, "duplicate source chain"),
+    ({"mode": "lottery"}, "mode must be payout or registry"),
     ({"claim_delay": 60}, "claim_delay must be >="),
     ({"filing_ends": T0_TS - 1}, "filing_ends must be in the future"),
     ({"adjudication_ends": FILING_ENDS - 1}, "adjudication_ends must be >= filing_ends"),
     ({"max_txs": 5000}, "max_txs too large"),
-    ({"min_tx_count": 2000, "max_txs": 1000}, "min_tx_count must be <= max_txs"),
+    ({"min_tx_count": 2000, "max_txs": 1000}, "min_tx_count must be <= max_txs x chains"),
     ({"tiers": [{"id": "a", "amount": "0", "description": "zero"}]}, "tier amount must be >= 1"),
     ({"tiers": [{"id": "a", "amount": "1", "description": "x"}, {"id": "A", "amount": "2", "description": "y"}]},
      "duplicate tier id"),
@@ -54,7 +59,7 @@ def test_open_round_requires_reserve(direct_vm, direct_deploy, direct_owner):
     warp(direct_vm, iso(T0_TS))
     contract = direct_deploy(CONTRACT)
     warp(direct_vm, iso(T0_TS))
-    with direct_vm.expect_revert("reserve (value) must be > 0"):
+    with direct_vm.expect_revert("reserve (value) must be > 0 in payout mode"):
         _open(direct_vm, contract, direct_owner, round_config(), value=0)
 
 

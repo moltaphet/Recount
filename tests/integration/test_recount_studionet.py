@@ -38,8 +38,12 @@ def _config(exclusion_url: str, now: int) -> dict:
         "title": "Recount integration round",
         "criteria": [{"id": "active", "text": "Sent at least one transaction on Ethereum mainnet before the snapshot."}],
         "tiers": [{"id": "base", "amount": str(GEN // 10), "description": "Meets the criterion."}],
-        "explorer_api": "https://eth.blockscout.com/api",
-        "snapshot_block": 20_000_000,
+        # v2: two chains (base answers 403 without a browser-like User-Agent) plus Snapshot governance.
+        "sources": [
+            {"chain": "ethereum", "explorer_api": "https://eth.blockscout.com/api", "snapshot_block": 20_000_000},
+            {"chain": "base", "explorer_api": "https://base.blockscout.com/api", "snapshot_block": 15_000_000},
+        ],
+        "governance_time": 1_718_000_000,
         "exclusion_url": exclusion_url,
         "max_txs": 50,
         "min_tx_count": 0,          # let the LLM judge, even for an empty history
@@ -132,5 +136,8 @@ def test_adjudicate_with_real_consensus(gl_client, deployed):
     # despite the injection attempt in the statement.
     assert a["status"] == "REJECTED"
     assert a["outcome_kind"] == "verdict"
-    assert a["evidence"]["facts"]["tx_count"] == 0
+    facts = a["evidence"]["facts"]
+    assert set(facts["chains"]) == {"ethereum", "base"}
+    assert facts["total"]["tx_count"] == 0
+    assert facts["governance"]["votes"] == 0
     assert contract.get_round(args=[rid]).call()["reserve"] == GEN // 2 + GEN // 100
