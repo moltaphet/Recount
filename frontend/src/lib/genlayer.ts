@@ -7,11 +7,13 @@
 // - time comes from the contract's get_time() view, never the local clock.
 
 import { createAccount, createClient, generatePrivateKey, isSuccessful } from "genlayer-js";
-import { studionet } from "genlayer-js/chains";
+import { studioDevnet, studionet } from "genlayer-js/chains";
 
 export const CONTRACT = import.meta.env.VITE_RECOUNT_ADDRESS as `0x${string}`;
-export const ROUND_ID = Number(import.meta.env.VITE_RECOUNT_ROUND_ID ?? 1);
 export const GEN = 10n ** 18n;
+export const NETWORK = (import.meta.env.VITE_RECOUNT_NETWORK as string) === "studio-dev" ? "studio-dev" : "studionet";
+const CHAIN = NETWORK === "studio-dev" ? studioDevnet : studionet;
+export const EXPLORER = NETWORK === "studio-dev" ? "https://explorer-studio-dev.genlayer.com" : "https://explorer-studio.genlayer.com";
 
 const BURNER_KEY = "recount.burnerKey";
 
@@ -25,7 +27,7 @@ export interface Wallet {
 }
 
 // A read-only client with a throwaway account (readContract wants one).
-const reader = createClient({ chain: studionet, account: createAccount(generatePrivateKey()) });
+const reader = createClient({ chain: CHAIN, account: createAccount(generatePrivateKey()) });
 
 declare global {
   interface Window {
@@ -41,8 +43,8 @@ export async function connectMetaMask(): Promise<Wallet> {
   if (!window.ethereum) throw new Error("No browser wallet found. Install MetaMask or use a temporary account.");
   const accounts = (await window.ethereum.request({ method: "eth_requestAccounts" })) as string[];
   const address = accounts[0] as `0x${string}`;
-  const client = createClient({ chain: studionet, account: address, provider: window.ethereum as never });
-  await client.connect("studionet");
+  const client = createClient({ chain: CHAIN, account: address, provider: window.ethereum as never });
+  await client.connect(NETWORK === "studio-dev" ? "studioDevnet" as never : "studionet");
   return { kind: "metamask", address, client };
 }
 
@@ -53,7 +55,7 @@ export function openTemporaryAccount(): Wallet {
     localStorage.setItem(BURNER_KEY, key);
   }
   const account = createAccount(key);
-  return { kind: "temporary", address: account.address, client: createClient({ chain: studionet, account }) };
+  return { kind: "temporary", address: account.address, client: createClient({ chain: CHAIN, account }) };
 }
 
 export function forgetTemporaryAccount(): void {
@@ -72,24 +74,34 @@ async function read<T>(functionName: string, args: unknown[] = []): Promise<T> {
 
 export interface Tier { id: string; amount: string; description: string }
 export interface Criterion { id: string; text: string }
+export interface Source { chain: string; explorer_api: string; snapshot_block: number }
+export type Mode = "payout" | "registry";
 export interface Round {
-  id: number; title: string; criteria: Criterion[]; tiers: Tier[];
-  explorer_api: string; snapshot_block: number; filing_bond: bigint;
+  id: number; title: string; mode: Mode; project: string; criteria: Criterion[]; tiers: Tier[];
+  sources: Source[]; governance_time: number; exclusion_url: string; filing_bond: bigint;
   filing_ends: number; adjudication_ends: number; claims_start: number; claims_end: number;
   reserve: bigint; bonds_held: bigint; total_awarded: bigint; paid_out: bigint; closed: boolean;
-  appeal_count: number; min_tx_count: number;
+  merkle_root: string; merkle_leaves: number; appeal_count: number; min_tx_count: number; min_active_months: number;
+}
+export interface RoundSummary {
+  id: number; title: string; mode: Mode; reserve: bigint; filing_ends: number; adjudication_ends: number;
+  appeal_count: number; sealed: boolean; chains: string[];
 }
 export interface Facts {
   tx_count: number; truncated: boolean; incoming_count: number; outgoing_count: number;
   failed_count: number; contract_creations: number; first_tx_date: string; last_tx_date: string;
   active_days: number; active_months: number; distinct_counterparties: number; first_funder: string;
 }
+export interface Governance { votes: number; spaces: number; first_vote_date: string; last_vote_date: string }
+export interface Evidence {
+  exclusion: { allocation: number; reason: string };
+  facts: { chains: Record<string, Facts>; total: Facts; governance?: Governance } | Record<string, never>;
+}
 export interface Appeal {
   id: number; round_id: number; claimant: string; criterion_id: string; statement: string;
   bond: bigint; status: "FILED" | "APPROVED" | "REJECTED" | "REFUNDED" | "CLAIMED";
   outcome_kind: string; outcome_code: string; tier: string; award: bigint; payout: bigint;
-  evidence: { exclusion: { allocation: number; reason: string }; facts: Facts } | null;
-  reasons: string[]; filed_at: number;
+  evidence: Evidence | null; reasons: string[]; filed_at: number;
 }
 
 // Calldata maps come back as Map in genlayer-js; normalise to plain objects.
@@ -105,16 +117,38 @@ export async function getTime(): Promise<number> {
   return num(await read("get_time"));
 }
 
-export async function getRound(id = ROUND_ID): Promise<Round> {
+export async function getRound(id: number): Promise<Round> {
   const r = plain(await read("get_round", [id])) as Record<string, unknown>;
   return {
     ...(r as unknown as Round),
-    id: num(r.id), snapshot_block: num(r.snapshot_block), filing_bond: big(r.filing_bond),
+    id: num(r.id), governance_time: num(r.governance_time), filing_bond: big(r.filing_bond),
     filing_ends: num(r.filing_ends), adjudication_ends: num(r.adjudication_ends),
     claims_start: num(r.claims_start), claims_end: num(r.claims_end),
     reserve: big(r.reserve), bonds_held: big(r.bonds_held), total_awarded: big(r.total_awarded),
     paid_out: big(r.paid_out), appeal_count: num(r.appeal_count), min_tx_count: num(r.min_tx_count),
+    min_active_months: num(r.min_active_months), merkle_leaves: num(r.merkle_leaves),
+    sources: ((r.sources as Record<string, unknown>[]) ?? []).map((s) => ({
+      chain: String(s.chain), explorer_api: String(s.explorer_api), snapshot_block: num(s.snapshot_block),
+    })),
   };
+}
+
+export async function roundCount(): Promise<number> {
+  return num(await read("round_count"));
+}
+
+export async function listRounds(offset = 0, limit = 50): Promise<RoundSummary[]> {
+  const rows = plain(await read("list_rounds", [offset, limit])) as Record<string, unknown>[];
+  return rows.map((r) => ({
+    id: num(r.id), title: String(r.title), mode: r.mode as Mode, reserve: big(r.reserve),
+    filing_ends: num(r.filing_ends), adjudication_ends: num(r.adjudication_ends),
+    appeal_count: num(r.appeal_count), sealed: Boolean(r.sealed), chains: (r.chains as string[]) ?? [],
+  }));
+}
+
+export async function approvedLeaves(id: number): Promise<{ address: `0x${string}`; amount: bigint }[]> {
+  const rows = plain(await read("approved_leaves", [id])) as Record<string, unknown>[];
+  return rows.map((r) => ({ address: String(r.address) as `0x${string}`, amount: big(r.amount) }));
 }
 
 export async function getAppeal(id: number): Promise<Appeal> {
@@ -126,11 +160,11 @@ export async function getAppeal(id: number): Promise<Appeal> {
   };
 }
 
-export async function getAppealOf(address: string, id = ROUND_ID): Promise<number> {
+export async function getAppealOf(address: string, id: number): Promise<number> {
   return num(await read("get_appeal_of", [id, address.toLowerCase()]));
 }
 
-export async function listAppeals(id = ROUND_ID): Promise<Appeal[]> {
+export async function listAppeals(id: number): Promise<Appeal[]> {
   const ids = (plain(await read("list_appeals", [id, 0, 100])) as unknown[]).map(num);
   return Promise.all(ids.map(getAppeal));
 }

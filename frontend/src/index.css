@@ -203,9 +203,76 @@ textarea:focus-visible { border-color: var(--stamp); }
 
 .foot { padding: 2rem clamp(1.25rem, 4vw, 3rem) 3rem; border-top: 1px solid var(--line); font-size: var(--s-1); color: var(--ink-2); }
 
+/* ---------------------------------------------------------------- navigation */
+.nav { display: flex; align-items: center; gap: 1.4rem; font-size: var(--s-1); }
+.nav a { color: var(--ink); text-decoration: none; font-weight: 600; }
+.nav a[aria-current="page"] { color: var(--stamp); text-decoration: underline; text-underline-offset: 0.3em; }
+.crumb { font-size: var(--s-1); margin-bottom: 0.9rem; }
+.crumb a { color: var(--ink-2); }
+.hero-round h1 { font-size: clamp(2.2rem, 5vw, 4.4rem); }
+
+/* ---------------------------------------------------------------- rounds ledger (home) */
+.ledger { max-width: 76rem; margin: 0 auto; padding: clamp(3rem, 8vh, 5rem) clamp(1.25rem, 4vw, 3rem); }
+.ledger h2 {
+  font-family: var(--display); font-weight: 700; font-variation-settings: "wdth" 85;
+  font-size: var(--s3); letter-spacing: -0.02em; margin-bottom: 1rem;
+}
+.rounds { width: 100%; border-collapse: collapse; }
+.rounds th, .rounds td { text-align: left; padding: 1rem 1rem 1rem 0; border-top: 1px solid var(--line); vertical-align: top; }
+.rounds thead th { font-size: var(--s-1); font-weight: 600; color: var(--ink-2); border-top: 0; padding-bottom: 0.6rem; }
+.rounds tbody th { font-weight: 600; font-size: var(--s1); }
+.rounds tbody th a { color: var(--ink); text-decoration: none; }
+.rounds tbody th a:hover { color: var(--stamp); text-decoration: underline; }
+.rounds .num { text-align: right; padding-right: 0; }
+
+/* ---------------------------------------------------------------- open a round */
+.new-round { max-width: 46rem; margin: 0 auto; padding: 6.5rem clamp(1.25rem, 4vw, 3rem) 4rem; }
+.new-round h1 {
+  font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 75, "opsz" 96;
+  font-size: clamp(2.4rem, 5vw, 3.8rem); line-height: 0.95; letter-spacing: -0.03em;
+}
+.round-form { display: grid; gap: 2.2rem; margin-top: 2.5rem; }
+.round-form fieldset { border-top: 1px solid var(--line); padding-top: 1.4rem; gap: 0.8rem; }
+.round-form legend { font-family: var(--display); font-weight: 700; font-variation-settings: "wdth" 85; font-size: var(--s2); letter-spacing: -0.015em; padding: 0; margin-bottom: 0.4rem; }
+.round-form input:not([type="radio"]):not([type="checkbox"]), .round-form textarea {
+  font: inherit; font-size: var(--s-1); padding: 0.7rem 0.8rem; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); width: 100%;
+}
+.round-form input:focus-visible, .round-form textarea:focus-visible { border-color: var(--stamp); }
+.row-2 { display: grid; grid-template-columns: 7rem 1fr auto; gap: 0.6rem; align-items: start; }
+.row-3 { display: grid; grid-template-columns: 7rem 7rem 1fr auto; gap: 0.6rem; align-items: start; }
+.row-2.compact, .row-3.compact { grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
+.choices-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.chains { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 0.6rem; }
+.chain { border: 1.5px solid var(--line); border-radius: 12px; padding: 0.7rem 0.8rem; display: grid; gap: 0.5rem; }
+.chain.is-on { border-color: var(--stamp); background: #eef0fd; }
+.chain label { font-weight: 600; display: flex; gap: 0.5rem; align-items: center; }
+.chain input[type="checkbox"], .check input { accent-color: var(--stamp); }
+.check { display: flex; gap: 0.5rem; align-items: center; font-weight: 600; }
+.connect { display: grid; gap: 0.8rem; padding: 1.2rem; border: 1px solid var(--line); border-radius: 14px; background: var(--sheet); }
+
+/* ---------------------------------------------------------------- verdict registry */
+.registry { display: grid; gap: 0.7rem; margin: 1rem 0; }
+.registry dt { font-size: var(--s-1); color: var(--ink-2); }
+.registry dd { margin: 0; font-weight: 700; }
+.registry .ok { color: var(--approve); }
+.registry .bad { color: var(--reject); }
+.mono-break { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 500 !important; font-size: var(--s-1); word-break: break-all; }
+.proof { display: grid; gap: 0.5rem; margin: 1rem 0; }
+.proof h3 { font-weight: 700; }
+.proof textarea { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.72rem; width: 100%; }
+details summary { cursor: pointer; font-weight: 600; font-size: var(--s-1); }
+.code { margin-top: 0.6rem; padding: 0.9rem; background: var(--ink); color: #e8edf1; border-radius: 10px; font-size: 0.75rem; overflow-x: auto; }
+.per-chain { margin-top: 0.8rem; }
+.per-chain h4 { text-transform: none; }
+
 /* ---------------------------------------------------------------- small screens */
 @media (max-width: 900px) {
   .file-room { grid-template-columns: 1fr; }
+  .choices-row { grid-template-columns: 1fr; }
+  .rounds thead { display: none; }
+  .rounds tr { display: grid; grid-template-columns: 1fr auto; border-top: 1px solid var(--line); padding: 0.8rem 0; }
+  .rounds th, .rounds td { border: 0; padding: 0.15rem 0; }
+  .rounds tbody th { grid-column: 1 / -1; }
   .case { position: static; }
   .timeline { grid-template-columns: 1fr 1fr; row-gap: 1.25rem; }
 }
@@ -214,6 +281,9 @@ textarea:focus-visible { border-color: var(--stamp); }
 }
 @media (max-width: 560px) {
   .criteria li { grid-template-columns: 1fr; gap: 0.25rem; }
+  .row-2, .row-3 { grid-template-columns: 1fr; }
+  .nav { gap: 0.9rem; }
+  .nav .net { display: none; }
   /* Phones: the airdrop gets its own stage above the copy instead of sitting behind it. */
   .hero { display: block; min-height: 0; }
   .scene { position: relative; height: 56svh; }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Appeal, Round, Stage, Wallet } from "../lib/genlayer";
-import { addTestGen, connectMetaMask, explain, hasInjectedWallet, openTemporaryAccount, write } from "../lib/genlayer";
+import { NETWORK, addTestGen, connectMetaMask, explain, hasInjectedWallet, openTemporaryAccount, write } from "../lib/genlayer";
 import { gen, phaseOf, short, until } from "../lib/format";
 import Verdict from "./Verdict";
 
@@ -79,14 +79,14 @@ export default function CasePanel({ round, now, wallet, balance, appeal, payout,
 
       {!wallet && (
         <div className="case-body">
-          <p>Connect the wallet that was excluded. Validators read its real Ethereum history, so use the address you want recounted.</p>
+          <p>Connect the wallet that was excluded. Validators read its real history on every chain this round lists, so use the address you want recounted.</p>
           <div className="stack">
             <button className="btn btn-primary" onClick={() => connect("metamask")} disabled={!hasInjectedWallet()}>
               Connect MetaMask
             </button>
             <button className="btn" onClick={() => connect("temporary")}>Try with a temporary account</button>
           </div>
-          {!hasInjectedWallet() && <p className="hint">No browser wallet detected. A temporary account works for trying the flow; it has no Ethereum history, so it will be found not eligible.</p>}
+          {!hasInjectedWallet() && <p className="hint">No browser wallet detected. A temporary account works for trying the flow; it has no on-chain history, so it will be found not eligible.</p>}
         </div>
       )}
 
@@ -99,7 +99,7 @@ export default function CasePanel({ round, now, wallet, balance, appeal, payout,
           </div>
           {balance !== null && (
             <p className="balance">
-              Balance on studionet: <strong>{gen(balance, 3)}</strong>
+              Balance on {NETWORK}: <strong>{gen(balance, 3)}</strong>
               {needsGen && <> <button className="link" onClick={fund}>Add test GEN</button></>}
             </p>
           )}
@@ -120,7 +120,7 @@ export default function CasePanel({ round, now, wallet, balance, appeal, payout,
                 <textarea maxLength={1000} rows={5} value={statement} onChange={(e) => setStatement(e.target.value)}
                   placeholder="For example: I bridged in 2023 and used the protocol every month. My first funds came from a centralized exchange, not a farming wallet." />
               </label>
-              <p className="hint">Filing locks a {gen(round.filing_bond)} bond. You get it back if you qualify or if nobody decides your case in time. If validators find you not eligible, it goes to the reserve.</p>
+              <p className="hint">Filing locks a {gen(round.filing_bond)} bond. You get it back if you qualify or if nobody decides your case in time. If validators find you not eligible, it stays with the round.</p>
               <button className="btn btn-primary" type="submit" disabled={busy || needsGen}>File appeal</button>
             </form>
           )}
@@ -149,14 +149,16 @@ export default function CasePanel({ round, now, wallet, balance, appeal, payout,
             <div className="claim">
               {phase === "claims" ? (
                 <button className="btn btn-primary" disabled={busy} onClick={() => run("Paid. The award and your bond are on their way.", "claim", [appeal.id])}>
-                  Claim {payout !== null ? gen(payout + appeal.bond) : "award"}
+                  {round.mode === "payout"
+                    ? `Claim ${payout !== null ? gen(payout + appeal.bond) : "award"}`
+                    : `Take back your ${gen(appeal.bond)} bond`}
                 </button>
               ) : (
                 <p className="hint">Claims open in {until(round.claims_start, now)}. Payouts wait until every case is decided, so the reserve is split fairly.</p>
               )}
             </div>
           )}
-          {appeal?.status === "CLAIMED" && <p className="state">Claimed {gen(appeal.payout + appeal.bond)}.</p>}
+          {appeal?.status === "CLAIMED" && <p className="state">{round.mode === "payout" ? `Claimed ${gen(appeal.payout + appeal.bond)}.` : `Bond returned. Your award is in the verdict registry.`}</p>}
           {appeal?.status === "REFUNDED" && <p className="state">Your bond was returned.</p>}
         </div>
       )}

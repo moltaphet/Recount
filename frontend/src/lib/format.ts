@@ -24,7 +24,7 @@ export function until(target: number, now: number): string {
 
 export function date(ts: number): string {
   return new Date(ts * 1000).toLocaleString("en-GB", {
-    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC",
+    day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC",
   }) + " UTC";
 }
 
@@ -36,4 +36,9 @@ export function phaseOf(r: { filing_ends: number; adjudication_ends: number; cla
   if (now < r.claims_start) return "waiting";
   if (now < r.claims_end) return "claims";
   return "over";
+}
+
+/** Payout rounds pay GEN; registry rounds list the project's own token (18 decimals) for an off-GenLayer payout. */
+export function amountText(amount: bigint, mode: "payout" | "registry"): string {
+  return mode === "payout" ? gen(amount) : gen(amount).replace(" GEN", " tokens");
 }

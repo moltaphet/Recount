@@ -5,6 +5,7 @@ networks:
   default: studionet
   localnet: {}
   studionet: {}
+  studio_devnet: {}   # studio-dev.genlayer.com: same fee model, separate rate-limit bucket
 
 paths:
   contracts: contracts/
