@@ -2,10 +2,10 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react
 import type { Appeal, Round, Wallet } from "./lib/genlayer";
 import { CONTRACT, getAppeal, getAppealOf, getBalance, getRound, getTime, listAppeals, previewPayout } from "./lib/genlayer";
 import { date, gen, phaseOf, short, until } from "./lib/format";
-import type { ScenePhase } from "./scene/Chamber";
+import type { ScenePhase } from "./scene/AirdropScene";
 import CasePanel from "./components/CasePanel";
 
-const Chamber = lazy(() => import("./scene/Chamber"));
+const AirdropScene = lazy(() => import("./scene/AirdropScene"));
 
 const STATUS_TEXT: Record<Appeal["status"], string> = {
   FILED: "Waiting for a decision",
@@ -40,15 +40,19 @@ export default function App() {
         setBalance(null); setAppeal(null); setPayout(null);
       }
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      // Studio allows 60 requests per minute per IP. Keep what is on screen and retry on the next sync.
+      setLoadError(/rate limit|429|-32429/i.test(msg)
+        ? "Studio is limiting requests from this connection for a moment. The page keeps the last data and retries automatically."
+        : `Couldn't read the contract at ${short(CONTRACT ?? "0x")}: ${msg}`);
     }
   }, [wallet]);
 
   useEffect(() => { refresh(); }, [refresh]);
-  // Chain time ticks locally between refreshes; re-sync every 30 s.
+  // Chain time ticks locally between refreshes; re-sync every 45 s (Studio rate limit: 60 req/min/IP).
   useEffect(() => {
     const tick = setInterval(() => setNow((n) => (n ? n + 1 : n)), 1000);
-    const sync = setInterval(refresh, 30000);
+    const sync = setInterval(refresh, 45000);
     return () => { clearInterval(tick); clearInterval(sync); };
   }, [refresh]);
 
@@ -72,7 +76,7 @@ export default function App() {
 
       <section className="hero" aria-label="Recount">
         <div className="scene" aria-hidden="true">
-          <Suspense fallback={null}><Chamber phase={scenePhase} /></Suspense>
+          <Suspense fallback={null}><AirdropScene phase={scenePhase} /></Suspense>
         </div>
         <div className="hero-copy">
           <h1>Cut from the airdrop by mistake?<br />Ask for a recount.</h1>
@@ -93,7 +97,7 @@ export default function App() {
         </div>
       </section>
 
-      {loadError && <p className="error page-error" role="alert">Couldn't read the contract at {short(CONTRACT ?? "0x")}: {loadError}</p>}
+      {loadError && <p className={`page-error ${round ? "notice-soft" : "error"}`} role="status">{loadError}</p>}
 
       {round && (
         <main className="file-room">

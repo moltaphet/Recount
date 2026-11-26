@@ -163,6 +163,7 @@ textarea:focus-visible { border-color: var(--stamp); }
 .error { margin-top: 1rem; color: var(--reject); font-weight: 600; font-size: var(--s-1); }
 .notice { margin-top: 1rem; color: var(--approve); font-weight: 600; font-size: var(--s-1); }
 .page-error { padding: 1rem clamp(1.25rem, 4vw, 3rem); }
+.notice-soft { color: var(--ink-2); font-size: var(--s-1); }
 
 /* ---------------------------------------------------------------- the verdict: a stamped document */
 .verdict { position: relative; display: grid; gap: 1rem; padding: 1.4rem 1.2rem 1.2rem; background: #fff; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
@@ -213,7 +214,11 @@ textarea:focus-visible { border-color: var(--stamp); }
 }
 @media (max-width: 560px) {
   .criteria li { grid-template-columns: 1fr; gap: 0.25rem; }
-  .hero { min-height: 92svh; }
+  /* Phones: the airdrop gets its own stage above the copy instead of sitting behind it. */
+  .hero { display: block; min-height: 0; }
+  .scene { position: relative; height: 56svh; }
+  .hero::after { display: none; }
+  .hero-copy { padding-top: 0.5rem; }
   .lede { font-size: var(--s0); }
 }
 @media (prefers-reduced-motion: reduce) {

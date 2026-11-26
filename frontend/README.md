@@ -10,5 +10,5 @@ npm run build
 
 Code map:
 - `src/lib/genlayer.ts`: the client (MetaMask or a temporary account), reads, and fee-estimated writes checked with `isSuccessful`.
-- `src/scene/Chamber.tsx`: the 3D recount chamber, driven by the state of the case.
+- `src/scene/AirdropScene.tsx`: the 3D airdrop (parachute, crate, validator lenses), driven by the state of the case.
 - `src/components/`: the case panel and the stamped verdict.

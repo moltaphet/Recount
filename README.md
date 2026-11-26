@@ -176,11 +176,11 @@ class Recount(gl.contract.Contract):
 
 `frontend/` holds a Vite + React app built with genlayer-js 2.0.0 and three.js (react-three-fiber).
 
-The hero is a 3D recount chamber that follows your case:
-- your wallet's coin waits in the cloud of excluded wallets;
-- when you file, it rises into the glass chamber;
-- while consensus runs, five validator lenses converge and beam into it;
-- with the verdict it turns green (eligible) or red (not eligible).
+The hero is a 3D airdrop (a parachute carrying a supply crate) that follows your case:
+- your wallet's coin drifts with the other excluded wallets below the parachute;
+- when you file, it rises to the crate;
+- while consensus runs, five validator lenses converge and beam at the crate;
+- with the verdict, the coin settles on the crate and the straps turn green (eligible), or the coin turns red and falls (not eligible).
 
 Connect with MetaMask so validators recount your real Ethereum address. You can also try the flow with a temporary in-browser account: it has no history, so it is found not eligible.
 
