@@ -169,3 +169,27 @@ class Recount(gl.contract.Contract):
   4. a free dry-run on the target network (`gen_getContractSchemaForCode` on Studio);
   5. integration tests;
   6. deploy.
+
+---
+
+## Frontend
+
+`frontend/` holds a Vite + React app built with genlayer-js 2.0.0 and three.js (react-three-fiber).
+
+The hero is a 3D recount chamber that follows your case:
+- your wallet's coin waits in the cloud of excluded wallets;
+- when you file, it rises into the glass chamber;
+- while consensus runs, five validator lenses converge and beam into it;
+- with the verdict it turns green (eligible) or red (not eligible).
+
+Connect with MetaMask so validators recount your real Ethereum address. You can also try the flow with a temporary in-browser account: it has no history, so it is found not eligible.
+
+```bash
+python scripts/deploy_demo.py      # deploys to studionet, opens a demo round, writes frontend/.env.local
+cd frontend && npm install && npm run dev
+```
+
+How the frontend follows the Consensus v0.6 rules:
+- every write is priced with `estimateTransactionFeesForWrite` and sent with `fees`;
+- a case only moves forward when `isSuccessful(tx)` holds;
+- countdowns use the contract's `get_time()` (chain time), never the browser clock.
