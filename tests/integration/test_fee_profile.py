@@ -23,11 +23,23 @@ from gltest.assertions import tx_execution_succeeded
 
 GEN = 10**18
 FEE_KEYS = ("distribution", "messageAllocations", "feeValue")
-WINDOW = 240  # seconds of filing/decision window, so seal and withdraw can run in the same test
+WINDOW = 1800  # seconds: FINALIZED waits plus up to three adjudicate retries must fit before the window closes
 
 
 def _fees(estimate) -> dict:
     return {k: estimate[k] for k in FEE_KEYS if k in estimate}
+
+
+def _failure(receipt) -> str:
+    """The contract's own error text from the leader receipt (base64 of a 1-byte tag + message)."""
+    import base64
+    try:
+        rounds = receipt["consensus_data"]["leader_receipt"]
+        leader = rounds[0] if isinstance(rounds, list) else rounds
+        raw = base64.b64decode(leader["result"]["raw"] if isinstance(leader["result"], dict) else leader["result"])
+        return raw[1:].decode("utf-8", "replace")
+    except Exception:
+        return str(receipt.get("txExecutionResultName") or receipt.get("tx_execution_result_name") or "unknown")
 
 
 def _round(now: int, exclusion_url: str, mode: str) -> dict:
@@ -62,13 +74,31 @@ def test_fee_profile_all_writes(gl_client, accounts):
     contract = get_contract_factory("Recount").deploy(
         args=[], account=project, fees=_fees(gl_client.estimate_transaction_fees()), wait_until="finalized")
 
+    def estimate(who, method, args, value):
+        # Studio's simulator fails on nondet writes with -32603 Internal error at times (studio-dev,
+        # 2026-11-26: every adjudicate simulation failed). The profile is measured from the receipts,
+        # so the quote only has to be large enough: fall back to the network's generic preset.
+        try:
+            return gl_client.estimate_transaction_fees_for_write(
+                address=contract.address, function_name=method, account=who, args=args, value=value)
+        except Exception as e:
+            if "Internal error" not in str(e):
+                raise
+            return gl_client.estimate_transaction_fees()
+
     def send(who, method, args, value=0):
-        est = gl_client.estimate_transaction_fees_for_write(
-            address=contract.address, function_name=method, account=who, args=args, value=value)
-        receipt = getattr(contract.connect(who), method)(args=args).transact(
-            value=value, fees=_fees(est), wait_until="finalized")
-        assert tx_execution_succeeded(receipt), f"{method} failed"
-        return receipt
+        # A [TRANSIENT] failure (e.g. an explorer answering 429 to validators) changes nothing
+        # and is meant to be retried: do what a user would and try again after a pause.
+        for attempt in range(4):
+            est = estimate(who, method, args, value)
+            receipt = getattr(contract.connect(who), method)(args=args).transact(
+                value=value, fees=_fees(est), wait_until="finalized")
+            if tx_execution_succeeded(receipt):
+                return receipt
+            reason = _failure(receipt)
+            if not reason.startswith("[TRANSIENT]") or attempt == 3:
+                raise AssertionError(f"{method} failed: {reason}")
+            time.sleep(90)
 
     url = os.environ["RECOUNT_EXCLUSION_URL"]
     now = contract.get_time(args=[]).call()

@@ -196,12 +196,23 @@ export async function write(
   onStage: (s: Stage) => void,
 ): Promise<WriteResult> {
   onStage("estimating");
-  const estimate = await wallet.client.estimateTransactionFeesForWrite({
-    address: CONTRACT,
-    functionName,
-    args: args as never,
-    value,
-  });
+  let estimate;
+  try {
+    // Best quote: Studio simulates this exact call and sizes the deposit for it.
+    estimate = await wallet.client.estimateTransactionFeesForWrite({
+      address: CONTRACT,
+      functionName,
+      args: args as never,
+      value,
+    });
+  } catch (err) {
+    // Studio's simulator sometimes fails on nondeterministic writes with a server error
+    // (-32603 "Internal error", seen on studio-dev 2026-11-26). Fall back to the network's
+    // generic preset, as the CLI does: it is a larger deposit and the unused part is refunded.
+    // Contract errors ([EXPECTED] ...) are not server errors and still stop the write.
+    if (!/internal error|-32603/i.test(String(err))) throw err;
+    estimate = await wallet.client.estimateTransactionFees();
+  }
   onStage("signing");
   const hash = (await wallet.client.writeContract({
     address: CONTRACT,
@@ -226,10 +237,40 @@ export async function write(
   return { ok, hash, feeQuoted: estimate.feeValue, error: ok ? undefined : describeFailure(tx) };
 }
 
+const MARKER = /\[(EXPECTED|EXTERNAL|TRANSIENT|LLM_ERROR)\][^\u0000"]*/;
+
+/** Find the contract's own error text in a receipt. The leader's result is a 1-byte tag plus the
+ *  message, base64-encoded, nested somewhere under consensus_data; search rather than hard-code the path. */
+function contractError(tx: unknown): string | null {
+  const seen = new Set<unknown>();
+  const stack: unknown[] = [tx];
+  while (stack.length) {
+    const v = stack.pop();
+    if (v === null || typeof v !== "object" || seen.has(v)) {
+      if (typeof v === "string") {
+        const plainHit = v.match(MARKER);
+        if (plainHit) return plainHit[0];
+        if (v.length >= 8 && v.length < 4000 && /^[A-Za-z0-9+/=]+$/.test(v)) {
+          try { const hit = atob(v).match(MARKER); if (hit) return hit[0]; } catch { /* not base64 */ }
+        }
+      }
+      continue;
+    }
+    seen.add(v);
+    for (const child of Object.values(v as Record<string, unknown>)) stack.push(child);
+  }
+  return null;
+}
+
 function describeFailure(tx: unknown): string {
   const t = tx as Record<string, unknown>;
   const status = String(t.statusName ?? t.status_name ?? "");
   if (status === "UNDETERMINED") return "Validators could not agree. Nothing changed; you can try again.";
+  const err = contractError(tx);
+  if (err?.startsWith("[TRANSIENT]")) {
+    return `An evidence source was busy (${err.replace("[TRANSIENT] ", "")}). Validators agreed to stop without a verdict, so nothing changed and your appeal is still open. Try again in a minute.`;
+  }
+  if (err) return `The contract refused: ${err.replace(/^\[\w+\] /, "")}. Nothing changed.`;
   return "The network accepted the transaction, but the contract rejected it. Nothing changed.";
 }
 
